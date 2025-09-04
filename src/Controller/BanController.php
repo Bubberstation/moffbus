@@ -19,7 +19,7 @@ class BanController extends AbstractController
         private UserRepository $userRepository
     ) {}
 
-    #[Route('/bans/public/{page}', name: 'bans.public', priority: 2)]
+/*    #[Route('/bans/public/{page}', name: 'bans.public', priority: 2)] // BUBBER EDIT - START
     public function public(int $page = 1): Response
     {
         $pagination = $this->banRepository->getPublicBans($page, true);
@@ -43,7 +43,7 @@ class BanController extends AbstractController
                 'per_page' => $pagination->getItemNumberPerPage()
             ]
         ]);
-    }
+    }*/ // BUBBER EDIT - END
 
     #[IsGranted('ROLE_USER')]
     #[Route('/bans/{page}', name: 'bans', priority: 1)]
