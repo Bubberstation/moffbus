@@ -22,7 +22,7 @@ class BanController extends AbstractController
     #[Route('/bans/public/{page}', name: 'bans.public', priority: 2)]
     public function public(int $page = 1): Response
     {
-        $pagination = $this->banRepository->getPublicBans($page, true);
+        $pagination = $this->banRepository->getPublicBans($page, false); // BUBBER EDIT - PREVIOUS - $pagination = $this->banRepository->getPublicBans($page, true);
         return $this->render('ban/index.html.twig', [
             'tgdb' => false,
             'public' => true,
