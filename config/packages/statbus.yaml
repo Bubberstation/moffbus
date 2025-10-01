@@ -5,7 +5,7 @@ parameters:
     tickets: true
     library: true
     polls: true
-    bans.public: true
+    bans.public: false
     auth.tgstation: true
     auth.discord: true
     round.extendedData: true
