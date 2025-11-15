@@ -1,0 +1,18 @@
+route {
+    @assets {
+        path /public/*
+    }
+    
+    log {
+        level ERROR
+    }
+
+    file_server @assets {
+        root /app/public
+    }
+
+    rewrite index.php
+    php {
+        root /app
+    }
+}

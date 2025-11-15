@@ -5,7 +5,47 @@ and this project loosely adheres to [Semantic Versioning](https://semver.org/spe
 
 ---
 
-#### [2.6.1] - 2025-09-28r
+#### [2.9.0] - 2025-11-02
+
+##### Added
+
+- A preliminary log viewer for some remote log files
+
+##### Fixed
+
+- Corrected a bunch of feature flag issues
+
+---
+
+#### [2.8.0] - 2025-10-25
+
+##### Added
+
+- Population charts and graphs with daily and hourly player averages
+
+---
+
+#### [2.7.0] - 2025-10-12
+
+##### Added
+
+- Statbus now parses some remote log files
+
+##### Fixed
+
+- Lots of little tweaks and fixes here and there
+
+---
+
+#### [2.6.3] - 2025-10-18
+
+##### Fixed
+
+- Library deletions are now fixed
+
+---
+
+#### [2.6.1] - 2025-09-28
 
 ##### Fixed
 

@@ -4,11 +4,24 @@
 	{% set prev = round.getId - 1 %}
 	{% set next = round.getId + 1 %}
 	<div class="d-flex justify-content-between">
-		<a href="{{ path('round.stats', { round: prev }) }}" class="btn btn-primary">
+		<a href="{{ path('round.stats', { round: prev }) }}" class="btn btn-primary btn-lg">
 			<i class="fa-solid fa-angles-left"></i>
 			<i class="fas fa-circle"></i>
 			{{ prev }}</a>
-		<a href="{{ path('round.stats', { round: next }) }}" class="btn btn-primary">
+		<ul class="nav nav-tabs mt-auto" style="margin-bottom: -1px;">
+			{% for l in links %}
+				<li class="nav-item">
+					<a class="nav-link {{l.btn}}" aria-current="page" href="{{l.url}}">
+					{% if l.img %}
+					<img src="{{asset(l.img)}}" style="height: 16px; width: auto;"/>
+					{% else %}
+						<i class="{{l.icon}}"></i>
+					{% endif %}
+						{{l.title}}</a>
+				</li>
+			{% endfor %}
+		</ul>
+		<a href="{{ path('round.stats', { round: next }) }}" class="btn btn-primary btn-lg">
 			<i class="fas fa-circle"></i>
 			{{ next }}
 			<i class="fa-solid fa-angles-right"></i>
@@ -19,13 +32,15 @@
 {% block sidebar %}
 	{% include "round/components/dashboard-header.html.twig" %}
 	<div class="px-2 my-2">
-		<h5>Database Stats</h5>
-		<ul class="nav flex-column">
-			{% for s in stats %}
-				<li class="nav-item">
-					<a class="nav-link" href="{{path('round.stats',{round: round.getId, stat: s})}}">
-						{{s}}</a>
-				</li>
+		{% for category, stats in stats %}
+			<h5>{{category}}</h5>
+			<ul class="nav flex-column">
+				{% for s in stats %}
+					<li class="nav-item">
+						<a class="nav-link" href="{{path('round.stats',{round: round.getId, stat: s})}}">
+							{{s}}</a>
+					</li>
+				{% endfor %}
 			{% endfor %}
 		</ul>
 	</div>
@@ -36,14 +51,21 @@
 {% block content %}
 	{% if stat %}
 		<h2 class="py-1 px-2 border-bottom">
-			<code>{{stat.getKey}}</code>
+			{% if stat.originalUrl %}
+				<a href="{{stat.originalUrl}}" target="_blank">
+					<code>{{stat.getKey}}</code>
+					<i class="fa-solid fa-arrow-up-right-from-square"></i>
+				</a>
+			{% else %}
+				<code>{{stat.getKey}}</code>
+			{% endif %}
 		</h2>
 		{% include [
 	        'stat/key/' ~ stat.getKey ~ '-' ~ stat.getVersion ~ '.html.twig', 
 	        'stat/key/' ~ stat.getKey ~ '.html.twig',
 	        'stat/type/' ~ stat.getType ~ '.html.twig', 
 	        'stat/generic.html.twig'
-	        ] with {'stat': stat, 'round':round.getId, 'server': round.getServer.getIdentifier} only %}
+	        ] with {'stat': stat, 'round':round, 'server': round.getServer.getIdentifier} only %}
 		<hr>
 		<div class="card mx-2">
 			<div class="card-header">Raw Data</div>
@@ -53,5 +75,17 @@
 		</pre>
 			</div>
 		</div>
+	{% else %}
+		<div class="fw-bold align-self-center me-auto ms-auto text-center text-muted" style="font-size: 5rem;">
+			<i class="fa-solid fa-hand-point-left"></i>
+			Select a Stat!
+		</div>
+		{% if is_granted('ROLE_ADMIN') %}
+			<div class="align-self-center me-auto ms-auto text-center text-muted">
+				<i class="fa-solid fa-arrows-rotate"></i>
+				Something not looking right?
+				<a href="?clearCache=true">Clear Cached Log Stats</a>
+			</div>
+		{% endif %}
 	{% endif %}
 {% endblock %}

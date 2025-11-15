@@ -7,7 +7,6 @@ on:
 
 permissions:
   contents: read
-  # everything else disabled by default
   packages: none
   pull-requests: none
 
@@ -22,13 +21,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image (no push)
+      - name: Build Docker image with Buildx (cache enabled)
         run: |
-          docker build -t statbus-test:latest .
+          docker buildx build \
+            --tag statbus-test:latest \
+            --cache-from=type=gha,scope=php-node-cache \
+            --cache-to=type=gha,mode=max,scope=php-node-cache \
+            --load .
 
-      - name: Save Docker image to tarball
-        run: |
-          docker save statbus-test:latest -o statbus-test.tar
+      - name: Save image as classic tar
+        run: docker save statbus-test:latest -o statbus-test.tar
 
       - name: Rsync image to remote server
         uses: burnett01/rsync-deployments@6.0.0
@@ -49,29 +51,27 @@ jobs:
           script: |
             set -e
 
-            echo "::group::Stop old container"
+            echo "Stop old container"
             docker compose -f ~/serv/docker-compose.yml stop statbus-test || true
+            docker compose -f ~/serv/docker-compose.yml stop tgmc-test || true
             docker compose -f ~/serv/docker-compose.yml rm -f statbus-test || true
+            docker compose -f ~/serv/docker-compose.yml rm -f tgmc-test || true
             docker image rm statbus-test:latest --force || true
-            echo "::endgroup::"
 
-            echo "::group::Load new image"
-            docker image load --input ~/statbus-test.tar
-            rm -f ~/statbus-test.tar
-            echo "::endgroup::"
+            echo "Load new image"
+            docker image load --input $HOME/statbus-test.tar
+            rm -f $HOME/statbus-test.tar
 
-            echo "::group::Deploy container"
-            cd ~/serv
+            echo "Deploy container"
             docker compose -f ~/serv/docker-compose.yml up -d statbus-test
-            echo "::endgroup::"
+            docker compose -f ~/serv/docker-compose.yml up -d tgmc-test
 
-            echo "::group::Run migrations"
+            echo "Run migrations"
             docker compose -f ~/serv/docker-compose.yml exec -T statbus-test php bin/console doctrine:migrations:migrate --no-interaction --em=statbus
-            echo "::endgroup::"
 
-            echo "::group::Clear cache"
+            echo "Clear cache"
             docker compose -f ~/serv/docker-compose.yml exec -T statbus-test php bin/console cache:clear
-            echo "::endgroup::"
+            docker compose -f ~/serv/docker-compose.yml exec -T tgmc-test php bin/console cache:clear
 
             echo "✅ Test deployment done via Traefik!"
 
@@ -89,23 +89,19 @@ jobs:
           script: |
             set -e
 
-            echo "::group::Remove generated assets"
+            echo "Remove generated assets"
             rm -rf ~/serv/www/test.statbus.space/public/icons
             rm -rf ~/serv/www/test.statbus.space/public/maps
-            echo "::endgroup::"
 
-            echo "::group::Update tgstation repo"
+            echo "Update tgstation repo"
             cd ~/tgstation
             git reset --hard HEAD
             git pull
-            echo "::endgroup::"
 
-            echo "::group::Render icons"
+            echo "Render icons"
             docker compose -f ~/serv/docker-compose.yml exec -T statbus-test php bin/console app:render-icons
-            echo "::endgroup::"
 
-            echo "::group::Render maps"
+            echo "Render maps"
             docker compose -f ~/serv/docker-compose.yml exec -T statbus-test php -d memory_limit=512M bin/console app:render-minimaps
-            echo "::endgroup::"
 
             echo "✅ Badger icons and minimaps have been rendered!"

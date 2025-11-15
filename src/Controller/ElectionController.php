@@ -4,8 +4,9 @@ namespace App\Controller;
 
 use App\Form\CandidateType;
 use App\Form\ElectionType;
+use App\Form\VoteTestType;
 use App\Service\Election\ElectionService;
-use Exception;
+use App\Service\Election\VoteFilterService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,9 +25,11 @@ final class ElectionController extends AbstractController
     {
         $elections = $this->electionService->getActiveElections();
         $pastElections = $this->electionService->getPastElections();
+        $upcomingElections = $this->electionService->getUpcomingElections();
         return $this->render('election/index.html.twig', [
             'elections' => $elections,
-            'past' => $pastElections
+            'past' => $pastElections,
+            'upcoming' => $upcomingElections
         ]);
     }
 
@@ -42,14 +45,19 @@ final class ElectionController extends AbstractController
                 name: $data['name'],
                 start: $data['start'],
                 end: $data['end'],
-                creator: $this->getUser()
+                creator: $this->getUser(),
+                anonymity: $data['anonymity']
             );
             return $this->redirectToRoute('election.candidates', [
                 'election' => $id
             ]);
         }
         return $this->render('election/create.html.twig', [
-            'form' => $form->createView()
+            'form' => $form->createView(),
+            'breadcrumb' => [
+                'Elections' => $this->generateUrl('election'),
+                'Create' => $this->generateUrl('election.create')
+            ]
         ]);
     }
 
@@ -78,53 +86,150 @@ final class ElectionController extends AbstractController
         }
         return $this->render('election/candidates.html.twig', [
             'form' => $form->createView(),
-            'election' => $election
+            'election' => $election,
+            'breadcrumb' => [
+                'Elections' => $this->generateUrl('election'),
+                $election->getName() => $this->generateUrl(
+                    'election.single',
+                    ['election' => $election->getId()]
+                ),
+                'Candidates' => $this->generateUrl(
+                    'election.candidates',
+                    ['election' => $election->getId()]
+                )
+            ]
         ]);
     }
 
-    #[Route('/{election}', name: '.single')]
-    public function single(int $election): Response
+    #[Route(
+        '/{election}/candidates/delete/{candidate}',
+        name: '.candidate.delete',
+        methods: ['POST']
+    )]
+    #[IsGranted('ROLE_ELECTION')]
+    public function deleteCandidate(int $election, int $candidate): Response
     {
         $election = $this->electionService->getElection($election);
-        if ($election->started() && !$election->over()) {
+        $this->electionService->removeCandidate($election, $candidate);
+        return $this->redirectToRoute('election.candidates', ['election' =>
+            $election->getId()]);
+    }
+
+    #[Route('/{election}', name: '.single')]
+    public function single(int $election, Request $request): Response
+    {
+        $election = $this->electionService->getElection($election);
+        if ($this->getUser() && $election->started() && !$election->over()) {
             if (
                 $this->electionService->hasUserVotedInThisElection(
                     $this->getUser(),
                     $election
                 )
             ) {
-                throw new Exception(
-                    'You have already voted in this election',
-                    403
-                );
+                return $this->render('election/voted.html.twig', [
+                    'election' => $election,
+                    'breadcrumb' => [
+                        'Elections' => $this->generateUrl('elections'),
+                        $election->getName() => $this->generateUrl(
+                            'election.single',
+                            ['election' => $election->getId()]
+                        )
+                    ]
+                ]);
             }
             return $this->render('election/vote.html.twig', [
-                'election' => $election
+                'election' => $election,
+                'breadcrumb' => [
+                    'Elections' => $this->generateUrl('election'),
+                    $election->getName() => $this->generateUrl(
+                        'election.single',
+                        ['election' => $election->getId()]
+                    )
+                ]
             ]);
         } elseif ($election->over()) {
             return $this->render('election/result.html.twig', [
-                'election' => $election
+                'election' => $election,
+                'breadcrumb' => [
+                    'Elections' => $this->generateUrl('election'),
+                    $election->getName() => $this->generateUrl(
+                        'election.single',
+                        ['election' => $election->getId()]
+                    )
+                ]
             ]);
         } elseif ($this->isGranted('ROLE_ELECTION')) {
+            $form = $this->createForm(ElectionType::class, $election);
+            $form->handleRequest($request);
+            if ($form->isSubmitted() && $form->isValid()) {
+                $this->electionService->updateElection($form->getData());
+                return $this->redirectToRoute('election.single', ['election' =>
+                    $election->getId()]);
+            }
             return $this->render('election/view.html.twig', [
-                'election' => $election
+                'election' => $election,
+                'form' => $form->createView(),
+                'breadcrumb' => [
+                    'Elections' => $this->generateUrl('election'),
+                    $election->getName() => $this->generateUrl(
+                        'election.single',
+                        ['election' => $election->getId()]
+                    )
+                ]
             ]);
         }
-        return $this->redirectToRoute('election');
+        return $this->render('election/view.html.twig', [
+            'election' => $election,
+            'breadcrumb' => [
+                'Elections' => $this->generateUrl('election'),
+                $election->getName() => $this->generateUrl(
+                    'election.single',
+                    ['election' => $election->getId()]
+                )
+            ]
+        ]);
     }
 
+    #[IsGranted('ROLE_ELECTION')]
+    #[Route('/{election}/testVoter', name: '.testVoter')]
+    public function testVoter(
+        Request $request,
+        VoteFilterService $voteFilterService,
+        int $election
+    ): Response {
+        $election = $this->electionService->getElection($election);
+        $form = $this->createForm(VoteTestType::class);
+        $form->handleRequest($request);
+        $type = null;
+        $ckey = null;
+        if ($form->isSubmitted() && $form->isValid()) {
+            $ckey = $form->getData()['ckey'];
+            $type = $voteFilterService->getVoterType($ckey, $election);
+        }
+        return $this->render('election/testVoter.html.twig', [
+            'election' => $election,
+            'type' => $type,
+            'ckey' => $ckey,
+            'form' => $form->createView(),
+            'breadcrumb' => [
+                'Elections' => $this->generateUrl('election'),
+                $election->getName() => $this->generateUrl(
+                    'election.single',
+                    ['election' => $election->getId()]
+                ),
+                'Test Voter Type' => $this->generateUrl(
+                    'election.testVoter',
+                    ['election' => $election->getId()]
+                )
+            ]
+        ]);
+    }
+
+    #[IsGranted('ROLE_USER')]
     #[Route('/{election}/vote', name: '.vote', methods: ['POST'])]
     public function vote(int $election, Request $request): Response
     {
         $election = $this->electionService->getElection($election);
-        if (
-            $this->electionService->hasUserVotedInThisElection(
-                $this->getUser(),
-                $election
-            )
-        ) {
-            throw new Exception('You have already voted in this election', 403);
-        }
         $this->electionService->castVote(
             vote: $request->request->all(),
             user: $this->getUser(),

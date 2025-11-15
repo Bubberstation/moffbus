@@ -2,7 +2,9 @@
 
 namespace App\Controller;
 
+use App\Entity\MenuItem;
 use App\Repository\TGRepository;
+use App\Service\FeatureFlagService;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -12,14 +14,13 @@ use Symfony\Component\Routing\Attribute\Route;
 class HomeController extends AbstractController
 {
     public function __construct(
-        private readonly array $statbusFeatures
+        private FeatureFlagService $features
     ) {}
 
     #[Route('', name: 'app.home')]
     public function index(): Response
     {
         $links = [];
-
         if ($user = $this->getUser()) {
             $links['Statbus... Apps... Stapps?'] = $this->getUserMenu($user);
 
@@ -32,13 +33,7 @@ class HomeController extends AbstractController
         $links['Tools'] = $this->getToolMenu();
         $links['Info'] = $this->getInfoMenu();
         $links['Statbus'] = $this->getStatbusMenu();
-        foreach ($links as $category => &$l) {
-            $l = array_filter(
-                $l,
-                fn($key) => $this->isFeatureEnabled($key),
-                ARRAY_FILTER_USE_KEY
-            );
-        }
+        $links = $this->features->handleMenuItems($links);
         return $this->render('home/index.html.twig', ['links' => $links]);
     }
 
@@ -62,8 +57,8 @@ class HomeController extends AbstractController
     {
         return $this->render('markdown.html.twig', [
             'title' => 'Changelog',
-            'content' => file_get_contents(dirname(__DIR__) .
-                '/../changelog.md')
+            'content' => file_get_contents(dirname(__DIR__)
+            . '/../changelog.md')
         ]);
     }
 
@@ -72,16 +67,24 @@ class HomeController extends AbstractController
     {
         return $this->render('markdown.html.twig', [
             'title' => 'Content Warning',
-            'content' => file_get_contents(dirname(__DIR__) .
-                '/../content-warning.md')
+            'content' => file_get_contents(dirname(__DIR__)
+            . '/../content-warning.md')
         ]);
     }
 
-    #[Route('/debug')]
-    public function debug(): Response
+    #[Route('/features', name: 'features')]
+    public function features(): Response
     {
-        return $this->json($this->getUser()->getRoles());
+        return $this->render('home/features.html.twig', [
+            'features' => $this->features->all()
+        ]);
     }
+
+    // #[Route('/debug')]
+    // public function debug(): Response
+    // {
+    //     return $this->json($this->getUser()->getRoles());
+    // }
 
     #[Route('/ping')]
     public function ping(TGRepository $tgrepository): Response
@@ -153,13 +156,13 @@ class HomeController extends AbstractController
                 url: $this->generateUrl('connections'),
                 btn: 'btn-warning'
             ),
-            new MenuItem(
+            'tgdb.telemetry' => new MenuItem(
                 title: 'TelemetryDB',
                 icon: 'fa-solid fa-satellite-dish',
                 url: $this->generateUrl('telemetry'),
                 btn: 'btn-warning'
             ),
-            new MenuItem(
+            'tgdb.newplayers' => new MenuItem(
                 title: 'New Players',
                 icon: 'fa-solid fa-user-plus',
                 url: $this->generateUrl('newplayers'),
@@ -208,17 +211,15 @@ class HomeController extends AbstractController
                 icon: 'fas fa-check-to-slot',
                 url: $this->generateUrl('polls')
             ),
-            'death.heatmaps' => new MenuItem(
+            'deaths.heatmaps' => new MenuItem(
                 title: 'Death Heatmaps',
                 icon: 'fa-solid fa-book-skull',
                 url: $this->generateUrl('death.heatmap')
             ),
-            'info.connections' => new MenuItem(
-                title: 'Connection Stats',
+            'population.yearly' => new MenuItem(
+                title: 'Population Stats',
                 icon: 'fa-solid fa-circle-nodes',
-                url: $this->generateUrl('info.connections') .
-                    '?year=' .
-                    (new DateTimeImmutable())->format('Y')
+                url: $this->generateUrl('population.yearly')
             )
         ];
     }
@@ -243,24 +244,4 @@ class HomeController extends AbstractController
             )
         ];
     }
-
-    private function isFeatureEnabled(mixed $key): bool
-    {
-        if (array_key_exists($key, $this->statbusFeatures)) {
-            return $this->statbusFeatures[$key];
-        } else {
-            return true; //Link isn't tracked by feature flags
-        }
-    }
-}
-
-class MenuItem
-{
-    public function __construct(
-        public string $title,
-        public string $icon,
-        public string $url,
-        public ?string $btn = 'btn-primary',
-        public ?string $img = null
-    ) {}
 }

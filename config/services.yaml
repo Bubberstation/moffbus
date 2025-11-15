@@ -14,6 +14,7 @@ parameters:
     app.map_depot_dir: "%env(APP_MAP_DEPOT_DIR)%"
     app.output_dir: "%env(APP_OUTPUT_DIR)%"
     app.badger_resources: "%env(APP_BADGER_RESOURCES)%"
+    app.storage_dir: "%kernel.project_dir%/var/storage"
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -48,17 +49,19 @@ services:
     App\Service\TGDB\FeedbackLinkService:
         arguments:
             $feedbackUri: "%app.feedback_uri%"
-    Aws\S3\S3Client:
-        arguments:
-            - version: "2006-03-01" # or 'latest'
-              region: "region-id" # 'eu-central-1' for example
-              endpoint: "https://sfo3.digitaloceanspaces.com"
-              credentials:
-                  key: "DO801JPH7ANJTF8VMC2V"
-                  secret: "9h/Qr0k+cgWzjHrtLyhN7PJlhOqbq51nOG4RJPOIc3M"
     App\Factory\SpeciesFactory: ~
     App\Form\BadgerType:
         arguments:
             $speciesClassRegistry: '@App\Service\Species\SpeciesClassRegistry'
             $iconListService: '@App\Service\Icons\IconListService'
             $speciesFactory: '@App\Factory\SpeciesFactory'
+    App\EventListener\FeatureFlagListener:
+        tags:
+            - {
+                  name: kernel.event_listener,
+                  event: kernel.controller,
+                  method: onKernelController,
+              }
+    App\Service\Round\RoundStatsService:
+        arguments:
+            $storageDir: "%app.storage_dir%"
