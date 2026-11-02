@@ -48,7 +48,7 @@
     "symfony/process": "7.3.*",
     "symfony/property-access": "7.3.*",
     "symfony/property-info": "7.3.*",
-    "symfony/runtime": "7.3.*",
+    "symfony/runtime": "7.4.*",
     "symfony/security-bundle": "7.3.*",
     "symfony/serializer": "7.3.*",
     "symfony/stimulus-bundle": "^2.30",
@@ -61,7 +61,7 @@
     "symfony/validator": "7.3.*",
     "symfony/web-link": "7.3.*",
     "symfony/webpack-encore-bundle": "^2.1",
-    "symfony/yaml": "7.3.*",
+    "symfony/yaml": "7.4.*",
     "twig/extra-bundle": "^3.18",
     "twig/html-extra": "^3.12",
     "twig/markdown-extra": "^3.12",
@@ -128,6 +128,6 @@
     "symfony/maker-bundle": "^1.0",
     "symfony/phpunit-bridge": "^7.1",
     "symfony/stopwatch": "7.3.*",
-    "symfony/web-profiler-bundle": "7.3.*"
+    "symfony/web-profiler-bundle": "7.4.*"
   }
 }
